@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+	
+	<!–– Use Font Awesome CDN to access their JS library ––>
+	<script defer src="https://use.fontawesome.com/releases/v5.0.13/js/all.js" integrity="sha384-xymdQtn1n3lH2wcu0qhcdaOpQwyoarkgLVxC/wZ5q7h9gHtxICrpcaSUfygqZGOe" crossorigin="anonymous"></script>
+
+	<meta charset="utf-8">
+	
+    <title>Keegan Haugh Assessment 3: Interactive Visualisation Design with D3</title>
+
+</head>
+
+<style>
+	
+	/*get fonts from Google*/
+	@import url('https://fonts.googleapis.com/css?family=Raleway')
+
+	/* set cursor to pointer on path elements */ 
+	path {
+	  cursor: pointer;
+	}
+	 
+	/*give the root node (centre circle) no fill and make sure it zooms out on click*/
+	circle {
+	  fill: none;
+	  pointer-events: all;
+	}
+
+	/*style tooltip*/ 
+	#tooltip { background-color: white;
+				  padding: 3px 5px;
+				  text-align: left;
+				}
+	 
+	/*class applied just to make text bigger in tooltips*/  
+	.makemebigger { font-size: 14px;
+				}
+
+	/*set fonts to be used, giving alternatives based on what's available*/
+	html {
+	  font-family: "Raleway", "Helvetica Neue", Helvetica, Arial, sans-serif;
+	  font-size: 12px;
+	 
+	}
+
+	/*class applied to set pointer on hover to paths, indicating interactivity*/ 
+	.slice {
+        cursor: pointer;
+    }
+
+    /*class applied to stop texts on paths from interfering with interactivity*/ 
+    .slice text {
+        pointer-events: none;
+        dominant-baseline: middle;
+        text-anchor: middle;
+    }
+
+    /*class applied to stop texts on paths from interfering with interactivity*/
+    .noPointerEvents {
+    	pointer-events: none;
+    }
+
+	/* styling text */
+	h1{
+	text-align: center; /* align text in center */
+	color: black;
+	font-size: 28px; /* set font size to 66 pixels */
+	padding-top: 25px;
+	}
+
+	h2{
+	text-align: center; /* align text in center */
+	color: black;
+	padding-top: 25px;
+	}
+
+	h3 {
+		display : inline;
+	  	font-size: 13px;
+	}
+
+	h4 {
+		display : inline;
+		font-weight: normal;
+		font-size: 12px;
+	}
+
+	/* styling heading text, including not-allowed cursor to indicate no interactivity */
+	#heading {
+    text-align: center;
+    color: black;
+    font-size: 17px;
+    font-weight: normal;
+    padding-bottom: 25px;
+    padding-top: 25px;
+    cursor: not-allowed;
+
+	}
+
+	/* class to place the whole svg (visualisation) in the centre of the page */
+	.putMeInTheMiddle {
+		display: block;
+    	margin-left: auto;
+    	margin-right: auto;;
+	}
+
+
+</style>
+
+<body>
+
+<!–– get D3 library––>
+<script src="https://d3js.org/d3.v3.min.js"></script>
+
+<!–– get colorbrewer for colours––>
+<script src="https://d3js.org/colorbrewer.v1.min.js"></script>
+
+<h1>Keegan Haugh Assessment 3 <br/> Interactive Visualisation Design with D3</h1>
+<h2 style = "text-align: center;">Click to zoom on areas of interest. Details on hover.</h2>
+
+<br/>
+
+<script type="text/javascript">
+
+	//function to test if string is empty, useful for determining which tooltip title to display
+	function isEmpty(str) {
+    	return (!str || 0 === str.length);
+	}
+
+	//function to wait for animations
+	function sleep(ms) {
+  		return new Promise(resolve => setTimeout(resolve, ms));
+	}
+
+
+	//declaring variable to be used to calculate distance of text from centre of sunburst
+	var distanceOfText = 2.8;
+
+	//declaring variable to help with stroke width
+	var strokeWidth = 7;
+
+	//declaring array for margin to be used to calculate width and height of visualisation
+	var margin = {top: 550, right: 480, bottom: 350, left: 480},
+
+		//declaring radius variable to be used to determine radius of sunburst. The optimal radius is calculated by asking what is smaller the width or height, whatever it is, make the radius variable equal to half of the smallest of the margins.
+	    radius = Math.min(margin.top, margin.right, margin.bottom, margin.left) - 10;
+
+	//function to check if shapes are big enough do fit text inside paths
+	function filter_min_arc_size_text(d, i) {return (d.dx*d.depth*radius/3)>14};
+
+	//declaring colours of sunburst
+	var hue = d3.scale.ordinal()
+	    hue.range(["#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3", "#fdb462","#fccde5"]);
+
+	//colour algorithm to make colours look a little less saturated
+	var luminance = d3.scale.sqrt()
+	    .domain([0, 1e6])
+	    .clamp(true)
+	    .range([90, 20]);
+
+	//create svg
+	var svg = d3.select("body").append("svg")
+	    .attr("width", margin.left + margin.right)
+	    .classed("putMeInTheMiddle", true)
+	    .attr("height", margin.top + margin.bottom)
+	  .append("g")
+	    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	//partition command ensures each part of the structure of the sunburst is properly sized relative to each other part, stored in partition variable.
+	var partition = d3.layout.partition()
+	    .sort(function(a, b) { return d3.ascending(a.name, b.name); })
+	    .size([2 * Math.PI, radius]);
+
+	//this calculates the size of the arc being drawn based on the json data
+	var arc = d3.svg.arc()
+	    .startAngle(function(d) { return d.x; })
+	    .endAngle(function(d) { return d.x + d.dx - .01 / (d.depth + .5); })
+	    .innerRadius(function(d) { return radius / 3 * d.depth; })
+	    .outerRadius(function(d) { return radius / 3 * (d.depth + 1) - 1; });
+
+	//prep for tooltip creation
+	var tooltip = d3.select("body")
+	    .append("div")
+	    .attr("id", "tooltip")
+	    .style("position", "absolute")
+	    .style("padding", '5px 10px')
+	    .style("opacity", 0);
+
+	//actually have no clue what this does
+	function format_number(x) {
+	  return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+	}
+
+	//function to define information inside tooltip
+	function tooltip_description(d) {
+
+		//check if this is the 3rd layer, if yes
+		if (isEmpty(d.layer)){
+
+			//check if there is no specified tooltip text 
+			//(this is useful for shortening titles in the vis, and keeping extended titles in the tooltip on hover)
+			if (isEmpty(d.tooltip))
+
+		    	{return  "<strong><h3 class='makemebigger'>" + d.name + "<br/></h3></strong><h3>" + d.place + "</h3><br/><h4>" + d.length + " • " + d.time + "<br/><strong>" + d.context + "</strong></h4>"}
+
+		  	else
+
+		  		{return  "<strong><h3 class='makemebigger'>" + d.tooltip + "<br/></h3></strong><h3>" + d.place + "</h3><br/><h4>" + d.length + " • " + d.time + "<br/><strong>" + d.context + "</strong></h4>"}
+
+		//otherwise
+		} else {
+
+			//check if there is no specified tooltip text 
+			//(this is useful for shortening titles in the vis, and showing extended titles in the tooltip on hover)
+			if (isEmpty(d.tooltip))
+
+		    	{return "<strong><h3 class='makemebigger'>"+ d.name +"</h3>"}
+
+		  	else
+
+		  		{return  "<strong><h3 class='makemebigger'>"+ d.tooltip +"</h3>"}
+
+			}
+		;}
+
+	//function to calculate the amount text needs to rotate to be in line with paths
+	function computeTextRotation(d) {
+		var angle=(d.x +d.dx/2)*180/Math.PI - 90
+		return angle;
+	}
+
+	//function to determine what happens on mouseover of sunburst paths/arcs
+	function mouseOverArc(d) {
+				d3.select(this)
+					.style("cursor", "pointer")
+					.style("fill", function() {
+		    			return d3.rgb(d3.select(this).style("fill")).darker(0.2);
+					});
+
+			//showing tooltip
+	          tooltip.html(tooltip_description(d));
+	          return tooltip.transition()
+	            .duration(500)
+	            .style("opacity", 0.9);
+
+	           //makes text not interfere with hover effect
+	           texts.classed("noPointerEvents", true);
+
+
+	        }
+
+	//function to determine what happens on mouseout of sunburst paths/arcs
+	function mouseOutArc(){
+		d3.select(this).style("cursor", "default").style("fill", function(d) { return d.fill; })
+		return tooltip.transition()
+			.style("opacity", 0);
+	}
+
+	function mouseMoveArc (d) {
+	          return tooltip
+	            .style("top", (d3.event.pageY-10)+"px")
+	            .style("left", (d3.event.pageX+10)+"px");
+	}
+
+	//get the json data
+	var root_ = null;
+	d3.json("skills.json", function(error, root) {
+	  if (error) return console.warn(error);
+	  
+	  // Compute the initial layout on the entire sunburst to sum sizes.
+	  // Also compute the full name and fill colour for each node,
+	  // and stash the children so they can be restored as we descend.
+	  partition
+	      .value(function(d) { return d.size; })
+	      .nodes(root)
+	      .forEach(function(d) {
+	        d._children = d.children;
+	        d.sum = d.value;
+	        d.key = key(d);
+	        d.fill = fill(d);
+	      });
+
+	  // Now redefine the value function to use the previously-computed sum.
+	  partition
+	      .children(function(d, depth) { return depth < 2 ? d._children : null; })
+	      .value(function(d) { return d.sum; });
+
+	  //create centre circle    
+	  var center = svg.append("circle")
+	      .attr("r", radius / 3)
+	      .on("click", zoomOut)
+	      
+	      //append icon
+	      svg.append('svg:foreignObject')
+	      	//no pointer events so that icon does not interfere with interaction
+	      	.classed("noPointerEvents", true)
+		    .attr("width", 50)
+		    .attr("id", "icon")
+		    .attr("height", 50)
+		    .attr("x", -25)
+		    .attr("y", -25)
+		    .style("opacity", 0)
+		    .append("xhtml:body")
+		    .html('<i class="fas fa-undo-alt fa-3x" data-fa-transform="flip-h"></i>');
+
+		//add zoom out indicator, just in case the icon isn't enough
+	  	center.append("title")
+	      	.text("zoom out");
+
+
+	  var partitioned_data=partition.nodes(root).slice(1)
+
+	  //create path/arc elements
+	  var path = svg.selectAll("path")
+	      .data(partitioned_data)
+	    .enter().append("path")
+	      .attr("d", arc)
+	      .style("fill", function(d) { return d.fill; })
+	      
+	      //an attempt to make 2nd layer lighter than the rest, I'm going to keep it here just in case I want to come back to this
+	      // .attr("class", (function(d, i) {
+       //      		if 
+       //      			(isEmpty(d.layer)) {return "darker3rdLayer"}
+       //     			else 	
+       //      			{ return "lighter2ndLayer" }
+       //      		;})
+	      
+	      .attr("stroke","white")
+	      .style("stroke-width", strokeWidth)
+	      .style("opacity", 0)
+	      .each(function(d) { this._current = updateArc(d); })
+	      .on("click", zoomIn)
+			.on("mouseover", mouseOverArc)
+	      .on("mousemove", mouseMoveArc)
+	      .on("mouseout", mouseOutArc);
+
+
+	  //create text elements
+	  var texts = svg.selectAll("text")
+	      .data(partitioned_data)
+	      .enter().append("text")
+			.filter(filter_min_arc_size_text)
+		    	.attr("transform", function(d) { return "rotate(" + computeTextRotation(d) + ")"; })
+			    .attr("x", function(d) { return radius / distanceOfText * d.depth; })
+				.attr("dx", "6") // margin
+		      	.attr("dy", ".35em") // vertical-align
+				.text(function(d, i) {return d.name})
+				.style("opacity", 0)
+			  	.classed("noPointerEvents", true)
+			  	//an attempt to make writing horizontal, requires alter to angular rotation of text
+			  	//.style("writing-mode", "tb")
+			  	//check if layer is not present in data, if yes, make text normal, if it is present, make bold
+			  	.style("font-weight", function(d, i) {
+            		if 
+            			(isEmpty(d.layer)) {return "normal"}
+           			else 	
+            			{ return "bold" }
+            	;})
+			  	//same as above, for size
+			  	.style("font-size", function(d, i) {
+            		if 
+            			(isEmpty(d.layer)) {return "11px"}
+           			else 	
+            			{ return "12px" }
+            	;});
+
+	//transitions to path and text elements on load
+     d3.selectAll("text").transition().delay(600).duration(1000).style("opacity", 1);
+     d3.selectAll("path").transition().delay(600).duration(1000).style("opacity", 1);
+
+ 		//dimensions of title background rect
+ 		var rectHeight = 50;
+    	var rectWidth = 235;
+
+    	//create heading/title background of rect
+      	var titlerectangle = svg.append("rect") 
+		    .attr("x", rectWidth/2 * -1)
+		    .attr("y", -430)
+		    .attr("rx", 30)
+    		.attr("ry", 30)
+		    .attr("id", "heading")
+		    .attr("width", rectWidth)
+		    .attr("height", rectHeight)
+		    .style("fill", "#C2F385")
+		    .style("opacity", 0)
+	    
+	    //create title/heading text
+	    svg.append("text")
+	    	.text("My Skills and Experience")
+		    .attr("x", 0)
+    		.attr("y", -425 + rectHeight/2)
+    		.attr("id", "heading")
+    		.style("opacity", 0)
+		    .attr("fill", "black")
+		    .classed("noPointerEvents", true)
+		    .attr("text-anchor", "middle");
+
+		//transitions to heading/title elements on load
+		d3.selectAll("#heading").transition().delay(1000).duration(1000).attr("transform", "translate(0,-20)").style("opacity", 1);
+
+		//.ease(d3.easeBounce)
+			  
+
+		//on zoom in
+	  function zoomIn(p) {
+	    if (p.depth > 1) p = p.parent;
+	    if (!p.children) return;
+	    zoom(p, p);
+
+	    //set icon opacity
+	    d3.select("#icon").transition()
+	    		.delay(600)
+	            .duration(800)
+	            .style("opacity", 1)
+	            .attr("transform", "rotate(-45,0,0)");
+
+	    //update title
+	   	// d3.select("#heading").html(p.name).transition()
+	    //         .duration(800)
+	    //         //.style("opacity", 0)
+	    //         .attr("transform", "rotate(-45,0,0)");
+
+	    //transition heading out
+	    d3.selectAll("#heading").transition().duration(800).attr("transform", "translate(0,80)").style("opacity", 0);
+
+	    //set variables to change width and height of pill
+	    rectHeight = 50;
+	    rectWidth = 150;
+
+	     //move pill further out of view
+	     d3.selectAll("#heading").transition().delay(800).attr("transform", "translate(0,120)").style("opacity", 0);
+
+	     
+	     //this code waits 8 ms for the previous animations to finish before executing
+	     async function demo() {
+			  console.log('Taking a break...');
+			  await sleep(800);
+			  console.log('Two second later');
+
+			  //remake pill
+		d3.selectAll("#heading")	    
+		    .text(function(d) {return p.name; })
+		    .attr("text-anchor", "middle");
+
+	    d3.selectAll("rect")
+	    		.attr("width", rectWidth)
+			    .attr("height", rectHeight)
+			    .attr("x", rectWidth/2 * -1)
+			    .style("fill", function(d) { return p.fill; });
+
+			}
+
+		demo();
+
+	    //transition up
+
+	    d3.selectAll("#heading").transition().delay(1000).duration(1000).attr("transform", "translate(0,80)").style("opacity", 1);
+
+	    async function demoriginal() {
+			  console.log('Taking a break...');
+			  await sleep(1000);
+			  console.log('Two second later');
+
+			  demoriginal();
+	  }
+
+	  }
+
+	  //on zoom out
+	  function zoomOut(p) {
+	    if (!p.parent) return;
+	    zoom(p.parent, p);
+
+	    //set icon opacity
+	    d3.select("#icon").transition()
+	            .duration(800)
+	            .style("opacity", 0)
+	            .attr("transform", "rotate(45,0,0)");
+
+	    //transition out
+	    d3.selectAll("#heading").transition()
+	    		.duration(1000)
+	    		.attr("transform", "translate(0,-100)")
+	    		.style("opacity", 0);
+
+	   	//remake pill
+
+	   	 //this code waits 8 ms for the previous animations to finish before executing
+	     async function demo2() {
+			  console.log('Taking a break...');
+			  await sleep(800);
+			  console.log('Two second later')
+			  d3.selectAll("#heading")
+			   	.remove();
+
+			  
+		var rectHeight = 50;
+	    	var rectWidth = 235;
+
+	      	var titlerectangle = svg.append("rect") 
+			    .attr("x", rectWidth/2 * -1)
+			    .attr("y", -450)
+			    .attr("rx", 30)
+	    		.attr("ry", 30)
+			    .attr("id", "heading")
+			    .attr("width", rectWidth)
+			    .attr("height", rectHeight)
+			    .style("fill", "#C2F385")
+			    .style("opacity", 0)
+		    
+		    svg.append("text")
+		    	.text("My Skills and Experience")
+			    .attr("x", 0)
+	    		.attr("y", -445 + rectHeight/2)
+	    		.attr("id", "heading")
+	    		.style("opacity", 0)
+			    .attr("fill", "black")
+			    .classed("noPointerEvents", true)
+			    .attr("text-anchor", "middle");
+
+			d3.selectAll("#heading").transition().duration(1000).attr("transform", "translate(0,20)").style("opacity", 1);
+
+			}
+
+			demo2()
+
+	   	// //come back
+	   	// d3.selectAll("#heading").transition().delay(1800).duration(1000).attr("transform", "translate(0,-20)").style("opacity", 1);
+	  }
+
+	  // Zoom to the specified new root.
+	  function zoom(root, p) {
+	    if (document.documentElement.__transition__) return;
+
+	    // Rescale outside angles to match the new layout.
+	    var enterArc,
+	        exitArc,
+	        outsideAngle = d3.scale.linear().domain([0, 2 * Math.PI]);
+
+	    function insideArc(d) {
+	      return p.key > d.key
+	          ? {depth: d.depth - 1, x: 0, dx: 0} : p.key < d.key
+	          ? {depth: d.depth - 1, x: 2 * Math.PI, dx: 0}
+	          : {depth: 0, x: 0, dx: 2 * Math.PI};
+	    }
+
+	    function outsideArc(d) {
+	      return {depth: d.depth + 1, x: outsideAngle(d.x), dx: outsideAngle(d.x + d.dx) - outsideAngle(d.x)};
+	    }
+
+	    center.datum(root);
+
+	    // When zooming in, arcs enter from the outside and exit to the inside.
+	    // Entering outside arcs start from the old layout.
+	    if (root === p) enterArc = outsideArc, exitArc = insideArc, outsideAngle.range([p.x, p.x + p.dx]);
+
+		 var new_data=partition.nodes(root).slice(1)
+
+	    path = path.data(new_data, function(d) { return d.key; });
+
+		 // When zooming out, arcs enter from the inside and exit to the outside.
+	    // Exiting outside arcs transition to the new layout.
+	    if (root !== p) enterArc = insideArc, exitArc = outsideArc, outsideAngle.range([p.x, p.x + p.dx]);
+
+	    //sunburst gets rebuilt after transition
+	    d3.transition().duration(d3.event.altKey ? 7500 : 750).each(function() {
+	      path.exit().transition()
+	          .style("fill-opacity", function(d) { return d.depth === 1 + (root === p) ? 1 : 0; })
+	          .attrTween("d", function(d) { return arcTween.call(this, exitArc(d)); })
+	          .remove();
+
+	      path.enter().append("path")
+	          .style("fill-opacity", function(d) { return d.depth === 2 - (root === p) ? 1 : 0; })
+	          .style("fill", function(d) { return d.fill; })
+	          .attr("stroke","white")
+	          .style("stroke-width", strokeWidth)
+	          .on("click", zoomIn)
+				 .on("mouseover", mouseOverArc)
+	      	 .on("mousemove", mouseMoveArc)
+	      	 .on("mouseout", mouseOutArc)
+	          .each(function(d) { this._current = enterArc(d); });
+
+
+	      path.transition()
+	          .style("fill-opacity", 1)
+	          .attrTween("d", function(d) { return arcTween.call(this, updateArc(d)); });
+
+	    //update title
+	   	d3.select("#heading").html("Skills and Experience");
+
+	    });
+
+
+		 texts = texts.data(new_data, function(d) { return d.key; })
+
+		 texts.exit()
+		         .remove()
+	    texts.enter()
+	            .append("text")
+
+	    //text gets rebuilt after zoom in and out
+	    texts.style("opacity", 0)
+	      .attr("transform", function(d) { return "rotate(" + computeTextRotation(d) + ")"; })
+			.attr("x", function(d) { return radius / distanceOfText * d.depth; })
+			.attr("dx", "6") // margin
+	      .attr("dy", ".35em") // vertical-align
+	      //check if arc is too small to display text in its shape
+	      .filter(filter_min_arc_size_text)
+	      .text(function(d,i) {return d.name})
+	      .classed("noPointerEvents", true)
+	      .style("font-weight", function(d, i) {
+            		if 
+            			(isEmpty(d.layer)) {return "normal"}
+           			else 	
+            			{ return "bold" }
+            	;})
+			  	//same as above, for size
+			  	.style("font-size", function(d, i) {
+            		if 
+            			(isEmpty(d.layer)) {return "11px"}
+           			else 	
+            			{ return "12px" }
+            	;})
+			.transition().delay(750).style("opacity", 1);
+
+
+	  }
+	});
+
+//all below are exclusively Fabien Plisson's functions
+
+	function key(d) {
+	  var k = [], p = d;
+	  while (p.depth) k.push(p.name), p = p.parent;
+	  return k.reverse().join(".");
+	}
+
+	function fill(d) {
+	  //var p = d;
+	  //where the fill gets passed from parents to children
+	  while (d.depth > 1) d = d.parent;
+	  var c = d3.lab(hue(d.name));
+	  c.l = luminance(d.sum);
+	  return c;
+	}
+
+	function arcTween(b) {
+	  var i = d3.interpolate(this._current, b);
+	  this._current = i(0);
+	  return function(t) {
+	    return arc(i(t));
+	  };
+	}
+
+	function updateArc(d) {
+	  return {depth: d.depth, x: d.x, dx: d.dx};
+	}
+
+	d3.select(self.frameElement).style("height", margin.top + margin.bottom + "px");
+
+
+</script>
+
+	<h2>Data Source: Author</h2>
+
+</body>
+
+<!-- created with code by Fabien Plisson as base, available at https://www.fabienplisson.com/#skills
+ ***************************************************************************************
+*    Title: Creating a D3js Sunburst plot
+*    Author: Fabien Plisson
+*    Date: 01/06/2017
+*    Code version: 2
+*    Availability: https://www.fabienplisson.com/#skills
+*
+ ***************************************************************************************/ -->
+
+</html>

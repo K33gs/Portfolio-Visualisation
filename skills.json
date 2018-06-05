@@ -1,0 +1,53 @@
+{
+ "name": "SKILLS",
+ "children": [
+  {
+   "name": "UX Research", "layer": "2",
+   "children": [
+      {"name": "Play on Campus", "size": 1, "place": "University of Sydney", "length": "Feb 2017", "time": "4 weeks", "context": "Researching peoples experiences playing at USyd"},
+      {"name": "Rookie/Coach", "size": 1, "place": "Telstra Imaginarium", "length": "Oct 2015 - Nov 2015", "time": "2 months", "context": "Validating a problem for 18-22 year olds"},
+      {"name": "Horizon", "size": 1, "place": "Deloitte Australia", "length": "Aug 2015", "time": "3 weeks", "context": "Investigating how users might utilise an internal product"}
+     ]
+  },
+  {
+   "name": "D3.js", "layer": "2",
+   "children": [
+      {"name": "Portfolio Vis", "size": 1, "place": "University of Sydney", "tooltip": "Portfolio Visualisation", "length": "May 2018", "time": "3 weeks", "context": "Programming this interaction"}
+     ]
+  },
+  {
+   "name": "Service Design", "layer": "2",
+   "children": [
+    {"name": "Rookie/Coach", "size": 1, "place": "Telstra Imaginarium", "length": "Oct 2015 - Nov 2015", "time": "2 months", "context": "Designing the experience of a mentor/mentee matchmaking service"},
+    {"name": "GEL", "size": 1, "place": "Deloitte Australia", "tooltip": "Global Experience Language", "length": "May 2017 - Aug 2017", "time": "3 months", "context": "Blueprinting the touchpoints of a Design System"}
+   ]
+  },
+  {
+   "name": "UI Design", "layer": "2",
+   "children": [
+    {"name": "Play on Campus", "size": 1, "place": "University of Sydney", "length": "Feb 2017", "time": "4 weeks", "context": "Showcasing opportunities to play at USyd"}
+   ]
+  },
+  {
+   "name": "Video Direction", "layer": "2",
+   "children": [
+    {"name": "Experience XD", "size": 1, "place": "University of Sydney", "tooltip": "Experience Experience Design", "length": "Apr 2017 - May 2017", "time": "2 months", "context": "Revealing an often unperceived industry"},
+    {"name": "Get Kids Coding", "size": 1, "place": "Code Club Australia", "tooltip": "We want you to #getkidscoding", "length": "Jun 2016 - July 2016", "time": "3 weeks", "context": "Embodying the values of a not-for-profit"},
+    {"name": "Walk Up", "size": 1, "place": "University of Sydney", "length": "Aug 2016 - Nov 2016", "time": "3 weeks", "context": "Animating the story of a fictional product"}
+   ]
+  },
+  {
+   "name": "Leadership", "layer": "2",
+   "children": [
+    {"name": "SUEDE", "size": 1, "place": "University of Sydney", "length": "Nov 2017 - Present", "time": "1 year", "context": "Building a student society from the ground up"}
+   ]
+  },
+  {
+   "name": "Logo Design", "layer": "2",
+   "children": [
+    {"name": "Soulless", "size": 1, "place": "University of Sydney", "length": "Apr 2017", "time": "2 weeks", "context": "Symbolising a horror/mystery game for mobile"}
+    ]
+  }
+
+ ]
+}
